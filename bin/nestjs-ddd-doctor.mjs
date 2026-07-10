@@ -62,10 +62,7 @@ function resolveSrc() {
     return m ? m[1] : h;
   }))];
 
-  if (roots.length === 1) {
-    console.log(`(auto-detected source dir: ${relative(CWD, roots[0])})`);
-    return roots[0];
-  }
+  if (roots.length === 1) return roots[0]; // shown as "patient" in the banner
   if (roots.length > 1) {
     console.error('nestjs-ddd-doctor: multiple NestJS source dirs found — pick one:');
     for (const r of roots) console.error(`   npx nestjs-ddd-doctor ${relative(CWD, r)}`);
@@ -82,6 +79,57 @@ if (!existsSync(SRC) || !statSync(SRC).isDirectory()) {
   console.error(`nestjs-ddd-doctor: source directory not found: ${SRC}`);
   console.error('Usage: npx nestjs-ddd-doctor [srcDir]');
   process.exit(2);
+}
+
+// ── Colors (zero-dep ANSI; disabled on non-TTY or NO_COLOR) ──────────────────
+
+const useColor = process.stdout.isTTY && !process.env.NO_COLOR;
+const paint = (code) => (txt) => (useColor ? `\x1b[${code}m${txt}\x1b[0m` : txt);
+const purple = paint('38;5;141');
+const dim = paint('2');
+const bold = paint('1');
+const red = paint('31');
+const orange = paint('38;5;208');
+const yellow = paint('33');
+const green = paint('32');
+
+// ── Botsito 🩺 ────────────────────────────────────────────────────────────────
+
+const MASCOT = String.raw`
+        .----.
+       ( @  @ )
+        \ -- /
+     .--'----'--.
+    /|    ++    |\
+   d |    ++    | b
+     |  .----.  |
+     |__|    |__|
+        | () |
+        '----'
+`;
+
+function banner(srcLabel) {
+  const art = MASCOT.split('\n').slice(1, -1);
+  const info = [
+    '',
+    '',
+    `  ${bold(purple('nestjs-ddd-doctor'))}`,
+    `  ${dim('NestJS architecture check-up')}`,
+    '',
+    `  ${dim('patient:')} ${srcLabel}`,
+  ];
+  console.log('');
+  for (let i = 0; i < art.length; i++) {
+    console.log(purple(art[i].padEnd(22)) + (info[i] ?? ''));
+  }
+  console.log('');
+}
+
+function verdict(score) {
+  if (score >= 90) return green('Clean bill of health. Keep it up.');
+  if (score >= 70) return yellow('Minor symptoms — worth a look.');
+  if (score >= 40) return orange('Needs treatment. Start with the 🔴 findings.');
+  return red('Urgent care required. The 🔴 findings are bleeding layers.');
 }
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -238,11 +286,13 @@ for (const f of findings) {
   byRule.get(f.rule.id).push(f);
 }
 
-console.log(`\nnestjs-ddd-doctor — ${relative(CWD, SRC) || '.'}\n`);
+banner(relative(CWD, SRC) || '.');
+
+const SEV_PAINT = { high: red, med: orange, low: yellow };
 for (const [id, list] of byRule) {
   const { sev, desc } = list[0].rule;
-  console.log(`${SEV[sev]} ${id} — ${desc} (${list.length})`);
-  for (const f of list) console.log(`   ${f.file}:${f.line}`);
+  console.log(`${SEV[sev]} ${SEV_PAINT[sev](bold(id))} ${dim('—')} ${desc} ${dim(`(${list.length})`)}`);
+  for (const f of list) console.log(dim(`   ${f.file}:${f.line}`));
   console.log('');
 }
 
@@ -250,7 +300,9 @@ const counts = { high: 0, med: 0, low: 0 };
 for (const f of findings) counts[f.rule.sev]++;
 const score = Math.max(0, 100 - counts.high * 10 - counts.med * 4 - counts.low * 1);
 
-if (findings.length === 0) console.log('✅ No findings.');
-console.log(`Score: ${score}/100  (🔴 ${counts.high} × -10   🟠 ${counts.med} × -4   🟡 ${counts.low} × -1)\n`);
+if (findings.length === 0) console.log(`${green('✅ No findings.')}\n`);
+const scorePaint = score >= 90 ? green : score >= 70 ? yellow : score >= 40 ? orange : red;
+console.log(`${bold('Score:')} ${scorePaint(bold(`${score}/100`))}  ${dim(`(🔴 ${counts.high} × -10   🟠 ${counts.med} × -4   🟡 ${counts.low} × -1)`)}`);
+console.log(`${verdict(score)}\n`);
 
 process.exit(counts.high > 0 ? 1 : 0);

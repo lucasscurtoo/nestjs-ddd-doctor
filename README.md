@@ -2,12 +2,21 @@
 
 Zero-dependency architecture linter for NestJS projects with DDD leanings — in the spirit of [react-doctor](https://react.doctor), but for your API's layer boundaries.
 
-Run it, get a scored report of where your architecture is leaking:
+Run it, get a check-up from the botsito 🤖 and a scored report of where your architecture is leaking:
 
 ```
-$ npx nestjs-ddd-doctor apps/api/src
+$ npx nestjs-ddd-doctor
 
-nestjs-ddd-doctor — apps/api/src
+        .----.
+       ( @  @ )
+        \ -- /          nestjs-ddd-doctor
+     .--'----'--.       NestJS architecture check-up
+    /|    ++    |\
+   d |    ++    | b     patient: apps/api/src
+     |  .----.  |
+     |__|    |__|
+        | () |
+        '----'
 
 🔴 controller-db — Controller accesses the database directly (move it to a service/repository) (6)
    apps/api/src/whatsapp/bot-config.controller.ts:2
@@ -21,7 +30,10 @@ nestjs-ddd-doctor — apps/api/src
    apps/api/src/common/guards/auth.guard.ts:32
 
 Score: 29/100  (🔴 6 × -10   🟠 1 × -4   🟡 2 × -1)
+Needs treatment. Start with the 🔴 findings.
 ```
+
+Colored output on TTYs (respects `NO_COLOR`); plain text when piped.
 
 Exit code is `1` when there is any 🔴 finding — drop it straight into CI.
 
