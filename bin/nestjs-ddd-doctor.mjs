@@ -117,7 +117,12 @@ function* walk(dir) {
     if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
     const p = join(dir, e.name);
     if (e.isDirectory()) yield* walk(p);
-    else if (e.name.endsWith('.ts') && !e.name.endsWith('.d.ts')) yield p;
+    else if (
+      e.name.endsWith('.ts') &&
+      !e.name.endsWith('.d.ts') &&
+      !e.name.endsWith('.spec.ts') &&
+      !e.name.endsWith('.test.ts')
+    ) yield p; // tests are not architecture
   }
 }
 
@@ -147,6 +152,19 @@ findings.sort((a, b) => order[a.rule.sev] - order[b.rule.sev] || a.file.localeCo
 
 const srcLabel = relative(CWD, SRC) || '.';
 
+// Structure recognition: how DDD-shaped is this codebase? (credit where due —
+// the score measures boundary integrity, this shows the attempt.)
+const moduleDirs = new Set(
+  [...files.keys()].filter((f) => f.endsWith('.module.ts') && !f.endsWith('app.module.ts'))
+    .map((f) => f.slice(0, f.lastIndexOf('/'))),
+);
+const structure = { modules: moduleDirs.size, withDomain: 0, withApplication: 0 };
+for (const dir of moduleDirs) {
+  const inMod = [...files.keys()].filter((p) => p.startsWith(dir + '/'));
+  if (inMod.some((p) => p.includes(`${dir}/domain/`))) structure.withDomain++;
+  if (inMod.some((p) => p.includes(`${dir}/application/`))) structure.withApplication++;
+}
+
 if (flags['update-baseline']) {
   const { path, count } = writeBaseline(CWD, findings);
   console.log(`Baseline written: ${path} (${count} findings frozen). Future runs report only new ones.`);
@@ -169,6 +187,7 @@ if (flags.json) {
     grade: grade(score),
     counts,
     baselined: suppressedCount,
+    structure,
     findings: visible.map((f) => ({ rule: f.rule.id, severity: f.rule.sev, file: f.file, line: f.line })),
   }, null, 2));
   process.exit(hasHigh ? 1 : 0);
@@ -176,7 +195,7 @@ if (flags.json) {
 
 // ── Report + AI handoff ───────────────────────────────────────────────────────
 
-banner(srcLabel, profile);
+banner(srcLabel, profile, structure);
 printReport(visible, score);
 if (suppressedCount > 0) {
   console.log(dim(`(${suppressedCount} pre-existing findings baselined in ${BASELINE_FILE} — showing only new ones)\n`));

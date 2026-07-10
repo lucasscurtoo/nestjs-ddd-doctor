@@ -82,7 +82,13 @@ npx nestjs-ddd-doctor --profile=strict
 | `missing-bounded-context-layers` | 🟡 | Feature module (with a controller and ≥6 files) lacking `domain/` or `application/` |
 | `fat-service` | 🟡 | Service >250 lines with direct DB access — split into use cases + a repository port |
 
-Scoring: `100 − 10·🔴 − 4·🟠 − 1·🟡` (floor 0). Grades: A+ ≥98 · A ≥90 · B ≥75 · C ≥60 · D ≥40 · F.
+### Scoring
+
+Per **rule**, not per finding: `penalty = weight × (1 + log₂(count))`, capped (🔴 w10/cap30 · 🟠 w4/cap18 · 🟡 w1/cap8). Score = `100 − Σ penalties` (floor 0). Grades: A+ ≥98 · A ≥90 · B ≥75 · C ≥60 · D ≥40 · F.
+
+Why log damping: 200 hits of one rule are usually **one systematic decision** (e.g. "use cases inject the concrete repo"), not 200 independent sins — linear scoring nukes any large codebase to 0 and stops differentiating. When a single rule drives most of the penalty, the report says so explicitly.
+
+The banner also shows **structure recognition** (`29/41 modules DDD-shaped`): the score measures boundary *integrity*, the structure line credits the *attempt* — a DDD-shaped codebase with inverted arrows scores worse than it looks, and that's the point.
 
 ## AI handoff
 
