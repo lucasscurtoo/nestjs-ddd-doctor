@@ -1,0 +1,29 @@
+{
+  "name": "nestjs-ddd-doctor",
+  "version": "0.1.0",
+  "description": "Zero-dependency architecture linter for NestJS projects with DDD leanings: thin controllers, pure domain, ports over concrete infrastructure.",
+  "bin": {
+    "nestjs-ddd-doctor": "bin/nestjs-ddd-doctor.mjs"
+  },
+  "type": "module",
+  "files": [
+    "bin"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "nestjs",
+    "ddd",
+    "architecture",
+    "linter",
+    "clean-architecture",
+    "hexagonal"
+  ],
+  "author": "Lucas Scurto",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lucasscurtoo/nestjs-ddd-doctor.git"
+  }
+}
