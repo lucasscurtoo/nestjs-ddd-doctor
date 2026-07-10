@@ -42,6 +42,8 @@ npx nestjs-ddd-doctor [srcDir] [options]
 --profile=pragmatic|strict    # default: pragmatic
 --ai=claude|codex|clipboard   # skip the menu, hand findings straight off
 --ci                          # no prompts; exit 1 on any 🔴 finding
+--json                        # machine-readable output (score, grade, findings)
+--update-baseline             # freeze current findings; future runs report only new ones
 ```
 
 ## Profiles
@@ -90,6 +92,59 @@ When there are findings (and you're on a TTY), the doctor offers to hand them of
 - **[3] Copy prompt** — same report, straight to your clipboard, paste it into any AI.
 
 Non-interactive: `--ai=claude`, `--ai=codex` or `--ai=clipboard`. CI: `--ci` disables the menu entirely.
+
+## Baseline — adopt it in a legacy codebase
+
+You don't fix 40 findings on day one. Freeze them:
+
+```bash
+npx nestjs-ddd-doctor --update-baseline   # writes ddd-doctor-baseline.json — commit it
+```
+
+From then on, runs auto-load the baseline and report **only new findings** — existing debt is tolerated, regressions fail. Counts are tracked per `file::rule`, so unrelated edits shifting line numbers don't break it. Shrink the baseline as you pay debt down (re-run `--update-baseline` after fixing).
+
+## GitHub Action
+
+Fail PRs that introduce new architecture violations:
+
+```yaml
+# .github/workflows/architecture.yml
+name: architecture
+on: [pull_request]
+jobs:
+  ddd-doctor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: lucasscurtoo/nestjs-ddd-doctor@main
+        with:
+          src-dir: apps/api/src   # optional — auto-detected
+          profile: pragmatic      # or strict
+```
+
+Combined with a committed baseline, this becomes a free architecture guard-rail: existing debt passes, new leaks fail the check.
+
+## JSON output
+
+```bash
+npx nestjs-ddd-doctor --json
+```
+
+```json
+{
+  "src": "apps/api/src",
+  "profile": "pragmatic",
+  "score": 62,
+  "grade": "C",
+  "counts": { "high": 3, "med": 1, "low": 2 },
+  "baselined": 17,
+  "findings": [
+    { "rule": "controller-db", "severity": "high", "file": "src/foo.controller.ts", "line": 12 }
+  ]
+}
+```
 
 ## Config
 

@@ -11,6 +11,9 @@
  *                                repository ports, bounded-context skeleton.
  *   --ai=claude|codex|clipboard  Skip the prompt and hand findings straight off.
  *   --ci                         No interactive prompt; exit 1 on 🔴 findings.
+ *   --json                       Machine-readable output (no banner, no prompts).
+ *   --update-baseline            Freeze current findings in ddd-doctor-baseline.json;
+ *                                later runs only report NEW findings.
  *
  * Config (./ddd-doctor.config.json):
  *   {
@@ -26,8 +29,9 @@
 import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { rulesFor } from '../lib/rules.mjs';
-import { banner, printReport, computeScore, grade } from '../lib/report.mjs';
+import { banner, printReport, computeScore, grade, green, dim } from '../lib/report.mjs';
 import { offerAiHandoff } from '../lib/ai.mjs';
+import { loadBaseline, writeBaseline, applyBaseline, BASELINE_FILE } from '../lib/baseline.mjs';
 
 const CWD = process.cwd();
 
@@ -139,19 +143,49 @@ for (const [file, lines] of files) {
 const order = { high: 0, med: 1, low: 2 };
 findings.sort((a, b) => order[a.rule.sev] - order[b.rule.sev] || a.file.localeCompare(b.file));
 
-// ── Report + AI handoff ───────────────────────────────────────────────────────
+// ── Baseline ──────────────────────────────────────────────────────────────────
 
 const srcLabel = relative(CWD, SRC) || '.';
-banner(srcLabel, profile);
 
-const score = computeScore(findings);
-printReport(findings, score);
+if (flags['update-baseline']) {
+  const { path, count } = writeBaseline(CWD, findings);
+  console.log(`Baseline written: ${path} (${count} findings frozen). Future runs report only new ones.`);
+  process.exit(0);
+}
+
+const { visible, suppressedCount } = applyBaseline(findings, loadBaseline(CWD));
+const score = computeScore(visible);
+const hasHigh = visible.some((f) => f.rule.sev === 'high');
+
+// ── JSON output ───────────────────────────────────────────────────────────────
+
+if (flags.json) {
+  const counts = { high: 0, med: 0, low: 0 };
+  for (const f of visible) counts[f.rule.sev]++;
+  console.log(JSON.stringify({
+    src: srcLabel,
+    profile,
+    score,
+    grade: grade(score),
+    counts,
+    baselined: suppressedCount,
+    findings: visible.map((f) => ({ rule: f.rule.id, severity: f.rule.sev, file: f.file, line: f.line })),
+  }, null, 2));
+  process.exit(hasHigh ? 1 : 0);
+}
+
+// ── Report + AI handoff ───────────────────────────────────────────────────────
+
+banner(srcLabel, profile);
+printReport(visible, score);
+if (suppressedCount > 0) {
+  console.log(dim(`(${suppressedCount} pre-existing findings baselined in ${BASELINE_FILE} — showing only new ones)\n`));
+}
 
 await offerAiHandoff(
-  findings,
+  visible,
   { srcLabel, profile, score, gradeLabel: grade(score) },
   { aiFlag: typeof flags.ai === 'string' ? flags.ai : undefined, ci: Boolean(flags.ci) },
 );
 
-const hasHigh = findings.some((f) => f.rule.sev === 'high');
 process.exit(hasHigh ? 1 : 0);

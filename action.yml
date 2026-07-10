@@ -1,0 +1,29 @@
+name: 'nestjs-ddd-doctor'
+description: 'Architecture check-up for NestJS projects with DDD leanings. Fails the job on new 🔴 boundary violations.'
+author: 'Lucas Scurto'
+branding:
+  icon: 'activity'
+  color: 'purple'
+
+inputs:
+  src-dir:
+    description: 'Source directory to scan (default: auto-detected)'
+    required: false
+    default: ''
+  profile:
+    description: 'pragmatic | strict'
+    required: false
+    default: 'pragmatic'
+  version:
+    description: 'npm version of nestjs-ddd-doctor to run'
+    required: false
+    default: 'latest'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Run nestjs-ddd-doctor
+      shell: bash
+      run: |
+        npx -y nestjs-ddd-doctor@${{ inputs.version }} ${{ inputs.src-dir }} \
+          --profile=${{ inputs.profile }} --ci
