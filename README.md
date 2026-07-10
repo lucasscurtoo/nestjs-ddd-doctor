@@ -33,6 +33,8 @@ npx nestjs-ddd-doctor [srcDir]   # default: ./src
 
 No install, no dependencies, one file. Node ≥ 20.
 
+In a monorepo with no `./src`, it auto-detects the NestJS source dir by looking for `*.controller.ts` files (e.g. `apps/api/src`). If several candidates exist it lists them and asks you to pick one.
+
 ## Rules
 
 | Rule | Severity | What it catches |

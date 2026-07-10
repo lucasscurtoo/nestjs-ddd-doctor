@@ -26,13 +26,59 @@
  *   }
  */
 
-import { readdirSync, readFileSync, existsSync } from 'node:fs';
+import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 
-const SRC = resolve(process.argv[2] ?? './src');
 const CWD = process.cwd();
 
-if (!existsSync(SRC)) {
+// Monorepo-friendly default: when no arg is given and ./src doesn't exist,
+// look for directories that actually contain NestJS controllers
+// (*.controller.ts) up to a few levels deep — e.g. apps/api/src.
+function findNestRoots(dir, depth = 0, out = []) {
+  if (depth > 4) return out;
+  let entries;
+  try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return out; }
+  if (entries.some((e) => e.isFile() && e.name.endsWith('.controller.ts'))) {
+    out.push(dir);
+    return out; // good enough as a root; no need to descend further
+  }
+  for (const e of entries) {
+    if (!e.isDirectory() || e.name === 'node_modules' || e.name.startsWith('.') || e.name === 'dist') continue;
+    findNestRoots(join(dir, e.name), depth + 1, out);
+  }
+  return out;
+}
+
+function resolveSrc() {
+  if (process.argv[2]) return resolve(process.argv[2]);
+  const dflt = resolve('./src');
+  if (existsSync(dflt)) return dflt;
+
+  // Controllers live nested (src/foo/foo.controller.ts) — collect the roots
+  // and reduce them to their nearest `src` ancestor (or the dir itself).
+  const hits = findNestRoots(CWD);
+  const roots = [...new Set(hits.map((h) => {
+    const m = h.match(/^(.*\/src)(\/|$)/);
+    return m ? m[1] : h;
+  }))];
+
+  if (roots.length === 1) {
+    console.log(`(auto-detected source dir: ${relative(CWD, roots[0])})`);
+    return roots[0];
+  }
+  if (roots.length > 1) {
+    console.error('nestjs-ddd-doctor: multiple NestJS source dirs found — pick one:');
+    for (const r of roots) console.error(`   npx nestjs-ddd-doctor ${relative(CWD, r)}`);
+    process.exit(2);
+  }
+  console.error(`nestjs-ddd-doctor: no source directory found (no ./src, no *.controller.ts nearby)`);
+  console.error('Usage: npx nestjs-ddd-doctor [srcDir]');
+  process.exit(2);
+}
+
+const SRC = resolveSrc();
+
+if (!existsSync(SRC) || !statSync(SRC).isDirectory()) {
   console.error(`nestjs-ddd-doctor: source directory not found: ${SRC}`);
   console.error('Usage: npx nestjs-ddd-doctor [srcDir]');
   process.exit(2);
