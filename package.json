@@ -1,6 +1,6 @@
 {
   "name": "nestjs-ddd-doctor",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Zero-dependency architecture linter for NestJS projects with DDD leanings: thin controllers, pure domain, ports over concrete infrastructure.",
   "bin": {
     "nestjs-ddd-doctor": "bin/nestjs-ddd-doctor.mjs"
